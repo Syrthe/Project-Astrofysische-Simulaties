@@ -1,0 +1,213 @@
+//
+//  main.cpp
+//  PROJECT
+//
+
+
+#include <iostream>
+#include <stdio.h>
+#include <fstream>
+#include <iomanip>
+#include <cmath>
+#include "Vec.h"
+#include "Integrators.h"
+using namespace std;
+
+
+// represents a 3D vector
+class Vec {
+    double _x;
+    double _y;
+    double _z;
+    
+public:
+    Vec() { _x = 0.; _y = 0.; _z = 0.; }
+    Vec(double x, double y, double z)
+    {
+        _x = x; _y = y; _z = z;
+    }
+    
+    double x() const { return _x; }
+    double y() const { return _y; }
+    double z() const { return _z; }
+    
+    double norm() const { return sqrt(_x*_x + _y * _y + _z * _z); }
+    double norm2() const { return _x * _x + _y * _y + _z * _z; }
+    double norm3() const { double r = sqrt(_x*_x + _y * _y + _z * _z); return r * r*r; }
+    
+    Vec& operator+=(Vec v) {
+        _x += v._x;
+        _y += v._y;
+        _z += v._z;
+        return *this;
+    }
+    Vec& operator-=(Vec v) {
+        _x -= v._x;
+        _y -= v._y;
+        _z -= v._z;
+        return *this;
+    }
+    Vec& operator*=(double s) {
+        _x *= s;
+        _y *= s;
+        _z *= s;
+        return *this;
+    }
+    Vec& operator/=(double s) {
+        _x /= s;
+        _y /= s;
+        _z /= s;
+        return *this;
+    }
+    Vec& operator=(Vec v) {
+        _x = v._x;
+        _y = v._y;
+        _z = v._z;
+        return *this;
+    }
+    
+};
+
+// operations between two vectors
+Vec operator+(Vec a, Vec b) { return a += b; }
+Vec operator-(Vec a, Vec b) { return a -= b; }
+
+// operations between a vector and a scalar
+Vec operator*(Vec a, double s) { return a *= s; }
+Vec operator*(double s, Vec b) { return b *= s; }
+Vec operator/(Vec a, double s) { return a /= s; }
+Vec operator/(double s, Vec a) { return a /= s; }
+
+void print(Vec a)
+{
+    std::cout << a.x() << ' ' << a.y() << ' ' << a.z() << std::endl;
+}
+
+
+
+
+// USING STANDARD UNITS: G = 1
+
+double Energie(Vec r, Vec v, double mu) {
+    double E = 0.5*v.norm2() - mu/(r.norm());
+    return E;
+}
+
+void Embedded_RK(double h, double t_max, Vec r0, Vec v0, double mu) {
+    
+    Vec k_x1;
+    Vec k_x2;
+    Vec k_x3;
+    Vec k_x4;
+    Vec k_x5;
+    Vec k_x6;
+    
+    Vec k_v1;
+    Vec k_v2;
+    Vec k_v3;
+    Vec k_v4;
+    Vec k_v5;
+    Vec k_v6;
+    
+    Vec r_n;
+    Vec r_nplus;
+    Vec v_n;
+    Vec v_nplus;
+    
+    double a21 = 0.25;
+    double a31 = 3./32.;
+    double a32 = 9./32.;
+    double a41 = 1932./2197.;
+    double a42 = -7200./2197.;
+    double a43 = 7296./2197.;
+    double a51 = 439./216.;
+    double a52 = -8.;
+    double a53 = 3680./513.;
+    double a54 = -845./4104.;
+    double a61 = -8./27.;
+    double a62 = 2.;
+    double a63 = -3544./2565.;
+    double a64 = 1859./4104.;
+    double a65 = -11./40.;
+    
+    double b1 = 25./216.;
+    double b2 = 0.;
+    double b3 = 1408./2565.;
+    double b4 = 2197./4104.;
+    double b5 = -0.2;
+    double b6 = 0.;
+    
+    ofstream file_orbits("Embedded_RK_orbits.txt");
+    file_orbits << setprecision(15);
+    
+    ofstream file_errors("Embedded_RK_errors.txt");
+    file_errors << setprecision(15);
+    
+    cout << "Writing to files.." << endl;
+    
+    file_orbits << r0.x() << ' ' << r0.y() << ' ' << r0.z() << endl;
+    r_n = r0;
+    v_n = v0;
+    
+    for (double t = 0.; t < t_max; t += h) {
+        
+        /*
+         vecRdot = vecV
+         vecVdot = F = -Gm vecR/R^3
+         
+         vecY = [vecR, vecV]
+         vecG = vecYdot
+         vecK_n = h*vecG(vecY + sum(cte*vecK_i))
+         */
+        
+        k_v1 = -h*mu*r_n/(r_n.norm3());
+        k_v2 = -h*mu*(r_n + a21*k_v1)/((r_n + a21*k_v1).norm3());
+        k_v3 = -h*mu*(r_n + a31*k_v1 + a32*k_v2)/((r_n + a31*k_v1 + a32*k_v2).norm3());
+        k_v4 = -h*mu*(r_n + a41*k_v1 + a42*k_v2 + a43*k_v3)/((r_n + a41*k_v1 + a42*k_v2 + a43*k_v3).norm3());
+        k_v5 = -h*mu*(r_n + a51*k_v1 + a52*k_v2 + a53*k_v3 + a54*k_v4)/((r_n + a51*k_v1 + a52*k_v2 + a53*k_v3 + a54*k_v4).norm3());
+        k_v6 = -h*mu*(r_n + a61*k_v1 + a62*k_v2 + a63*k_v3 + a64*k_v4 + a65*k_v5)/((r_n + a61*k_v1 + a62*k_v2 + a63*k_v3 + a64*k_v4 + a65*k_v5).norm3());
+        
+        v_nplus = v_n + b1*k_v1 + b2*k_v2 + b3*k_v3 + b4*k_v4 + b5*k_v5 + b6*k_v6;
+        v_n = v_nplus;
+        
+        k_x1 = h*v_n;
+        k_x2 = h*(v_n + a21*k_x1);
+        k_x3 = h*(v_n + a31*k_x1 + a32*k_x2);
+        k_x4 = h*(v_n + a41*k_x1 + a42*k_x2 + a43*k_x3);
+        k_x5 = h*(v_n + a51*k_x1 + a52*k_x2 + a53*k_x3 + a54*k_x4);
+        k_x6 = h*(v_n + a61*k_x1 + a62*k_x2 + a63*k_x3 + a64*k_x4 + a65*k_x5);
+        
+        r_nplus = r_n + b1*k_x1 + b2*k_x2 + b3*k_x3 + b4*k_x4 + b5*k_x5 + b6*k_x6;
+        
+        file_orbits << r_nplus.x() << ' ' << r_nplus.y() << ' ' << r_nplus.z() << endl;
+        file_errors << abs((Energie(r0, v0, mu) - Energie(r_nplus, v_nplus, mu))/Energie(r0, v0, mu)) << endl;
+        
+        r_n = r_nplus;
+        
+    }
+    
+    file_orbits.close();
+    file_errors.close();
+    
+    cout << "Done writing" << endl;
+    
+    return;
+}
+
+
+
+
+
+int main() {
+    
+    double h = 0.01;
+    double t_max = 500.;
+    Vec r0(1., 0., 0.);
+    Vec v0(0., 0.06, 0.);
+    
+    double mu = 0.01;
+    
+    Embedded_RK(h, t_max, r0, v0, mu);
+    
+    return 0;
+}
